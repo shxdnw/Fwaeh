@@ -79,7 +79,7 @@ class AdvancedArrowSimulation2D:
         self.canvas.create_oval(x, y, x+60, y+40, fill="white", outline="")
         self.canvas.create_oval(x+30, y-10, x+90, y+30, fill="white", outline="")
         self.canvas.create_oval(x-30, y+10, x+30, y+50, fill="white", outline="")
-    
+
     def draw_tree(self, x, y):
         self.canvas.create_rectangle(x-10, y-80, x+10, y, fill="#5d3a1a", outline="")
         self.canvas.create_oval(x-40, y-180, x+40, y-80, fill="#228b22", outline="")
@@ -135,7 +135,7 @@ class AdvancedArrowSimulation2D:
         self.gravity = self.gravity_slider.get()
         self.wind = self.wind_slider.get()
         speed = math.hypot(self.vx, self.vy)
-        
+        # lowk i wanna kms
         # Air resistance and wind
         drag = self.air_resistance * speed ** 2
         ax = -drag * self.vx / speed + self.wind if speed != 0 else self.wind
