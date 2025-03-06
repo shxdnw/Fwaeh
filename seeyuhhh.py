@@ -4,7 +4,7 @@ import math
 class AdvancedArrowSimulation2D:
     def __init__(self, root):
         self.root = root
-        self.root.title("2D Advanced Arrow Simulator")
+        self.root.title("tuff physics simulator fr")
         
         # Physics parameters
         self.gravity = 9.81
