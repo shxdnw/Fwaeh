@@ -1,203 +1,173 @@
-import tkinter as tk
-import math
+import os
+import platform
+import socket
+import subprocess
+import sys
+from typing import List, Tuple
 
-class AdvancedArrowSimulation2D:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("tuff physics simulator fr")
-        
-        # Physics parameters
-        self.gravity = 9.81
-        self.dt = 0.025
-        self.air_resistance = 0.001  # Reduced for higher speeds
-        
-        # Setup GUI
-        self.create_controls()
-        self.create_canvas()
-        self.reset_simulation()
-        self.update_preview()
-    
-    def create_controls(self):
-        control_frame = tk.Frame(self.root)
-        control_frame.pack(side=tk.LEFT, padx=10, pady=10)
-        
-        # Velocity control
-        tk.Label(control_frame, text="Velocity (m/s)").pack()
-        self.velocity_slider = tk.Scale(control_frame, from_=10, to=500, orient=tk.HORIZONTAL)
-        self.velocity_slider.set(100)
-        self.velocity_slider.pack()
-        
-        # Angle control
-        tk.Label(control_frame, text="Launch Angle").pack()
-        self.angle_slider = tk.Scale(control_frame, from_=0, to=90, orient=tk.HORIZONTAL)
-        self.angle_slider.set(45)
-        self.angle_slider.pack()
-        
-        # Gravity control
-        tk.Label(control_frame, text="Gravity (m/s²)").pack()
-        self.gravity_slider = tk.Scale(control_frame, from_=1, to=100, orient=tk.HORIZONTAL)
-        self.gravity_slider.set(9.81)
-        self.gravity_slider.pack()
-        
-        # Wind control
-        tk.Label(control_frame, text="Wind (m/s →)").pack()
-        self.wind_slider = tk.Scale(control_frame, from_=-50, to=50, orient=tk.HORIZONTAL)
-        self.wind_slider.set(0)
-        self.wind_slider.pack()
-        
-        # Control buttons
-        tk.Button(control_frame, text="Launch", command=self.start_simulation).pack(pady=5)
-        tk.Button(control_frame, text="Reset", command=self.reset_simulation).pack(pady=5)
-        
-        # Bind slider updates to preview
-        self.velocity_slider.config(command=lambda v: self.update_preview())
-        self.angle_slider.config(command=lambda v: self.update_preview())
-    
-    def create_canvas(self):
-        self.canvas = tk.Canvas(self.root, width=800, height=500, bg="skyblue")
-        self.canvas.pack(side=tk.RIGHT, padx=10, pady=10)
-        
-        # Draw ground
-        self.canvas.create_rectangle(0, 400, 800, 500, fill="#4a752c", outline="")
-        
-        # Draw scenery
-        self.draw_sun()
-        self.draw_cloud(100, 100)
-        self.draw_cloud(300, 150)
-        self.draw_cloud(600, 80)
-        self.draw_tree(650, 380)
-        
-        # Target and preview arrow
-        self.target = self.canvas.create_oval(700, 380, 740, 420, fill="red", outline="black")
-        self.preview_arrow = self.canvas.create_line(0, 0, 0, 0, width=3, arrow=tk.LAST, fill="#666666")
-        self.distance_text = self.canvas.create_text(400, 450, text="", font=("Arial", 14), fill="white")
-    
-    def draw_sun(self):
-        self.canvas.create_oval(650, 50, 750, 150, fill="#ffd700", outline="")
-    
-    def draw_cloud(self, x, y):
-        self.canvas.create_oval(x, y, x+60, y+40, fill="white", outline="")
-        self.canvas.create_oval(x+30, y-10, x+90, y+30, fill="white", outline="")
-        self.canvas.create_oval(x-30, y+10, x+30, y+50, fill="white", outline="")
+# Check if the terminal supports ANSI color codes
+def supports_color() -> bool:
+    """Check if the terminal supports ANSI color codes."""
+    # Check for Windows
+    if sys.platform == "win32":
+        return False  # Disable colors by default on Windows (unless using Windows Terminal)
+    # Check for non-Windows terminals
+    return sys.stdout.isatty()  # True if connected to a terminal
 
-    def draw_tree(self, x, y):
-        self.canvas.create_rectangle(x-10, y-80, x+10, y, fill="#5d3a1a", outline="")
-        self.canvas.create_oval(x-40, y-180, x+40, y-80, fill="#228b22", outline="")
-    
-    def reset_simulation(self):
-        self.simulating = False
-        self.canvas.delete("arrow")
-        self.canvas.delete("trail")
-        self.canvas.itemconfig(self.target, fill="red")
-        self.canvas.itemconfig(self.distance_text, text="")
-        self.update_preview()
-    
-    def update_preview(self):
-        if self.simulating:
-            return
-        
-        angle = math.radians(self.angle_slider.get())
-        velocity = self.velocity_slider.get()
-        preview_length = velocity / 4  # Scale preview size with velocity
-        
-        x1 = 50 + preview_length * math.cos(angle)
-        y1 = 400 - preview_length * math.sin(angle)
-        
-        self.canvas.coords(self.preview_arrow, 
-            50, 400,
-            x1, y1
+# Define colors based on terminal support
+SUPPORTS_COLOR = supports_color()
+
+class Colors:
+    HEADER = '\033[95m' if SUPPORTS_COLOR else ''
+    OKBLUE = '\033[94m' if SUPPORTS_COLOR else ''
+    OKGREEN = '\033[92m' if SUPPORTS_COLOR else ''
+    WARNING = '\033[93m' if SUPPORTS_COLOR else ''
+    FAIL = '\033[91m' if SUPPORTS_COLOR else ''
+    ENDC = '\033[0m' if SUPPORTS_COLOR else ''
+
+# Check if netifaces is installed
+try:
+    import netifaces
+    from netifaces import AF_INET, AF_INET6, AF_LINK
+    NETIFACES_AVAILABLE = True
+except ImportError:
+    NETIFACES_AVAILABLE = False
+    print(f"{Colors.WARNING}Warning: netifaces module is not installed. Some features will be limited.{Colors.ENDC}")
+    print(f"{Colors.WARNING}Install it with: pip install netifaces{Colors.ENDC}")
+
+# Helper functions
+def print_section(title: str) -> None:
+    """Print a section header with a border"""
+    border = "═" * (len(title) + 4)
+    print(f"\n{Colors.HEADER}╔{border}╗{Colors.ENDC}")
+    print(f"{Colors.HEADER}║  {title}  ║{Colors.ENDC}")
+    print(f"{Colors.HEADER}╚{border}╝{Colors.ENDC}")
+
+def print_subsection(title: str) -> None:
+    """Print a subsection header"""
+    print(f"\n{Colors.OKBLUE}• {title}:{Colors.ENDC}")
+
+def run_cmd(cmd: List[str], privileged: bool = False) -> str:
+    """Run a system command and return its output"""
+    try:
+        if privileged and os.name != 'nt' and os.geteuid() != 0:
+            cmd = ["sudo"] + cmd
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
         )
+        return result.stdout.strip()
+    except Exception as e:
+        return f"{Colors.FAIL}Error: {str(e)}{Colors.ENDC}"
+
+# ------------------ SCAN LEVELS ------------------ #
+def basic_scan():
+    print_section("Basic Network Scan")
     
-    def start_simulation(self):
-        if self.simulating:
-            return
-        
-        self.simulating = True
-        self.canvas.itemconfig(self.target, fill="red")
-        
-        # Initial conditions
-        angle = math.radians(self.angle_slider.get())
-        self.vx = self.velocity_slider.get() * math.cos(angle)
-        self.vy = -self.velocity_slider.get() * math.sin(angle)
-        self.x, self.y = 50, 400
-        self.trail = []
-        self.flight_time = 0
-        
-        # Create arrow
-        self.arrow = self.canvas.create_line(0, 0, 0, 0, width=3, arrow=tk.LAST, fill="brown", tags="arrow")
-        self.animate()
+    # Host information
+    print_subsection("System Information")
+    print(f"  Hostname: {Colors.OKGREEN}{socket.gethostname()}{Colors.ENDC}")
+    print(f"  OS: {Colors.OKGREEN}{platform.system()} {platform.release()}{Colors.ENDC}")
     
-    def animate(self):
-        if not self.simulating:
-            return
+    # Public IP
+    print_subsection("Public IP Address")
+    try:
+        public_ip = run_cmd(['curl', '-s', 'ifconfig.me'])
+        print(f"  {Colors.OKGREEN}{public_ip}{Colors.ENDC}")
+    except:
+        print(f"  {Colors.FAIL}Could not determine public IP{Colors.ENDC}")
+    
+    # Network interfaces
+    if NETIFACES_AVAILABLE:
+        print_subsection("Network Interfaces")
+        for iface in netifaces.interfaces():
+            addrs = netifaces.ifaddresses(iface)
+            if AF_INET in addrs:
+                print(f"  {Colors.OKBLUE}{iface}:{Colors.ENDC}")
+                print(f"    IPv4: {Colors.OKGREEN}{addrs[AF_INET][0]['addr']}{Colors.ENDC}")
+                if AF_LINK in addrs:
+                    print(f"    MAC: {Colors.OKGREEN}{addrs[AF_LINK][0]['addr']}{Colors.ENDC}")
+    else:
+        print(f"  {Colors.WARNING}Network interface details unavailable (netifaces not installed).{Colors.ENDC}")
+
+def medium_scan():
+    basic_scan()  # Include basic scan details
+    print_section("Medium Network Scan")
+    
+    # Gateways
+    if NETIFACES_AVAILABLE:
+        print_subsection("Gateways")
+        gateways = netifaces.gateways()
+        for family, gateway in gateways['default'].items():
+            print(f"  Family: {Colors.OKBLUE}AF_INET{family if family != 2 else ''}{Colors.ENDC}")
+            print(f"  Gateway: {Colors.OKGREEN}{gateway[0]}{Colors.ENDC}")
+            print(f"  Interface: {Colors.OKGREEN}{gateway[1]}{Colors.ENDC}")
+    
+    # Routing table
+    print_subsection("Routing Table")
+    system = platform.system()
+    if system == "Windows":
+        print(run_cmd(['route', 'print']))
+    else:
+        print(run_cmd(['ip', 'route'] if system == "Linux" else ['netstat', '-nr']))
+
+def verbose_scan():
+    medium_scan()  # Include medium scan details
+    print_section("Verbose Network Scan")
+    
+    # Firewall status
+    print_subsection("Firewall Configuration")
+    system = platform.system()
+    if system == "Windows":
+        print(run_cmd(['netsh', 'advfirewall', 'show', 'allprofiles']))
+        print(run_cmd(['netsh', 'advfirewall', 'firewall', 'show', 'rule', 'name=all']))
+    elif system == "Linux":
+        print(run_cmd(['ufw', 'status', 'verbose'], privileged=True))
+        print(run_cmd(['iptables', '-L', '-n', '-v'], privileged=True))
+    elif system == "Darwin":
+        print(run_cmd(['pfctl', '-s', 'rules'], privileged=True))
+    
+    # Active connections
+    print_subsection("Active Connections")
+    print(run_cmd(['netstat', '-ano'] if system == "Windows" else ['ss', '-tunlp']))
+
+# ------------------ MENU AND MAIN EXECUTION ------------------ #
+def show_menu():
+    print(f"\n{Colors.HEADER}=== NETWORK SCANNER ==={Colors.ENDC}")
+    print(f"{Colors.OKGREEN}1. Basic Scan{Colors.ENDC}       (Quick overview)")
+    print(f"{Colors.OKGREEN}2. Medium Scan{Colors.ENDC}      (Detailed network info)")
+    print(f"{Colors.OKGREEN}3. Verbose Scan{Colors.ENDC}     (Everything + firewall)")
+    print(f"{Colors.FAIL}4. Exit{Colors.ENDC}")
+    choice = input(f"{Colors.WARNING}Choose an option (1-4): {Colors.ENDC}")
+    return choice
+
+def main():
+    while True:
+        choice = show_menu()
         
-        # Update physics
-        self.gravity = self.gravity_slider.get()
-        self.wind = self.wind_slider.get()
-        speed = math.hypot(self.vx, self.vy)
-        # lowk i wanna kms
-        # Air resistance and wind
-        drag = self.air_resistance * speed ** 2
-        ax = -drag * self.vx / speed + self.wind if speed != 0 else self.wind
-        ay = self.gravity - drag * self.vy / speed if speed != 0 else self.gravity
-        
-        self.vx += ax * self.dt
-        self.vy += ay * self.dt
-        self.x += self.vx * self.dt
-        self.y += self.vy * self.dt
-        self.flight_time += self.dt
-        
-        # Store trail
-        self.trail.append((self.x, self.y))
-        if len(self.trail) > 30:
-            self.trail.pop(0)
-        
-        # Update graphics
-        self.update_arrow()
-        self.draw_trail()
-        self.check_target_hit()
-        
-        # Continue animation
-        if self.x < 850 and self.y < 500:
-            self.root.after(10, self.animate)
+        if choice == '1':
+            basic_scan()
+        elif choice == '2':
+            medium_scan()
+        elif choice == '3':
+            if os.name != 'nt' and os.geteuid() != 0:
+                print(f"\n{Colors.WARNING}⚠️  Some commands might require sudo privileges!{Colors.ENDC}")
+            verbose_scan()
+        elif choice == '4':
+            print(f"\n{Colors.OKGREEN}Exiting...{Colors.ENDC}")
+            break
         else:
-            self.show_results()
-            self.simulating = False
-    
-    def update_arrow(self):
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
-        arrow_length = 30
+            print(f"\n{Colors.FAIL}Invalid choice! Please select 1-4.{Colors.ENDC}")
         
-        x1 = self.x - arrow_length * math.cos(math.radians(angle))
-        y1 = self.y + arrow_length * math.sin(math.radians(angle))
-        
-        self.canvas.coords(self.arrow, 
-            self.x, self.y,
-            x1, y1
-        )
-    
-    def draw_trail(self):
-        self.canvas.delete("trail")
-        for i, (x, y) in enumerate(self.trail):
-            opacity = int(255 * (i/len(self.trail)))
-            color = f"#{opacity:02x}{opacity:02x}ff"
-            self.canvas.create_oval(x-2, y-2, x+2, y+2, fill=color, outline="", tags="trail")
-    
-    def check_target_hit(self):
-        target_coords = self.canvas.coords(self.target)
-        if (target_coords[0] < self.x < target_coords[2] and 
-            target_coords[1] < self.y < target_coords[3]):
-            self.canvas.itemconfig(self.target, fill="green")
-            self.simulating = False
-            self.show_results()
-    
-    def show_results(self):
-        distance = self.x - 50
-        self.canvas.itemconfig(self.distance_text, 
-            text=f"Distance: {distance:.1f}m | Time: {self.flight_time:.1f}s | Max Speed: {math.hypot(self.vx, self.vy):.1f}m/s"
-        )
+        input(f"\n{Colors.OKGREEN}Press Enter to continue...{Colors.ENDC}")
 
+# Ensure the script runs when executed
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = AdvancedArrowSimulation2D(root)
-    root.mainloop()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n{Colors.FAIL}Operation cancelled by user.{Colors.ENDC}")
+        sys.exit(1)
