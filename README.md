@@ -47,9 +47,10 @@ Exit: Quit the program.
 
 Note: Verbose scan may require admin privileges on Unix systems:
 
-bash
+```bash
 Copy
 sudo python3 network_scanner.py
+```
 Dependencies 📦
 Python 3.6+
 
