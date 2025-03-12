@@ -24,16 +24,18 @@ A Python script to analyze network configurations and firewall settings with an 
    pip install netifaces
 Download the script:
 
-bash
+```bash
 Copy
 git clone https://github.com/shxdnw/Fwaeh.git
 cd network-scanner
+```
 Usage 🚀
 Run the script:
 
-bash
+```bash
 Copy
 python network_scanner.py
+```
 Menu Options:
 Simple Scan: Quick network overview.
 
