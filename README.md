@@ -26,13 +26,13 @@ Download the script:
 
 ```bash
 git clone https://github.com/shxdnw/Fwaeh.git
-cd network-scanner
+cd networkinfo
 ```
 Usage 🚀
 Run the script:
 
 ```bash
-python network_scanner.py
+python networkinfo.py
 ```
 Menu Options:
 Simple Scan: Quick network overview.
@@ -46,7 +46,7 @@ Exit: Quit the program.
 Note: Verbose scan may require admin privileges on Unix systems:
 
 ```bash
-sudo python3 network_scanner.py
+sudo python3 networkinfo.py
 ```
 Dependencies 📦
 
