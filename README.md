@@ -25,7 +25,6 @@ A Python script to analyze network configurations and firewall settings with an 
 Download the script:
 
 ```bash
-Copy
 git clone https://github.com/shxdnw/Fwaeh.git
 cd network-scanner
 ```
@@ -33,7 +32,6 @@ Usage 🚀
 Run the script:
 
 ```bash
-Copy
 python network_scanner.py
 ```
 Menu Options:
@@ -48,7 +46,6 @@ Exit: Quit the program.
 Note: Verbose scan may require admin privileges on Unix systems:
 
 ```bash
-Copy
 sudo python3 network_scanner.py
 ```
 Dependencies 📦
