@@ -52,6 +52,7 @@ Copy
 sudo python3 network_scanner.py
 ```
 Dependencies 📦
+
 Python 3.6+
 
 netifaces
